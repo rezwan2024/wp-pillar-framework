@@ -188,9 +188,12 @@ All packages are MIT licensed — compatible with GPL-2.0-or-later for WordPress
 
 ## Plugins Built on WP Pillar
 
-| Plugin | Description | db_prefix | rest_namespace |
-|--------|-------------|-----------|----------------|
-| TicketWise AI *(in development)* | AI-powered support agent workbench | `twai_` | `ticketwise-ai/v1` |
+| Plugin | Description | Repo | db_prefix | rest_namespace | Framework Version |
+|--------|-------------|------|-----------|----------------|-------------------|
+| WP Notes | Full-stack Notes Manager — Vue 3 + Vite + Eloquent ORM + REST API | [wp-notes-plugin-wp-pillar-vue3](https://github.com/rezwan2024/wp-notes-plugin-wp-pillar-vue3) | `wpn_` | `wp-notes/v1` | v1.0 |
+
+🎬 [Watch the demo on Loom](https://www.loom.com/share/630eeef902b5468bbfa64503b9dd532c)
+⬇️ [Download wp-notes.zip (v1.0.0)](https://github.com/rezwan2024/wp-notes-plugin-wp-pillar-vue3/releases/download/v1.0.0/wp-notes.zip)
 
 ---
 
