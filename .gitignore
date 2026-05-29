@@ -1,0 +1,8 @@
+vendor/
+*.log
+.DS_Store
+node_modules/
+CLAUDE.md
+plan.md
+progress.md
+requirements.md

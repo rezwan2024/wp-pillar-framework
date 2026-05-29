@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:developers.fluentcrm.com)",
+      "WebFetch(domain:developers.fluentforms.com)",
+      "Bash(composer install *)",
+      "Bash(php --version)",
+      "Read(//opt/homebrew/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(mdfind -name php)",
+      "Bash(grep \"bin/php$\")",
+      "Bash(/opt/homebrew/bin/php *)",
+      "Bash(rsync -a --delete /Users/shiblu/wp-pillar/vendor/ '/Users/shiblu/Local Sites/test/app/public/wp-content/plugins/wp-pillar-example/vendor/')"
+    ]
+  }
+}
