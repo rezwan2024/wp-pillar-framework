@@ -15,7 +15,11 @@ use RuntimeException;
  */
 class Application
 {
-    private static ?self $instance = null;
+    /** @var array<string, static> One instance per plugin slug. */
+    private static array $instances = [];
+
+    /** Slug of the most recently accessed instance — used by global helpers. */
+    private static string $defaultSlug = '';
 
     private array $config = [];
 
@@ -29,15 +33,42 @@ class Application
     private function __construct() {}
 
     /**
-     * Get or create the singleton instance.
+     * Get or create the Application instance for the given plugin slug.
+     *
+     * Each plugin must pass its own unique slug so that two WP Pillar plugins
+     * active on the same site never share config, providers, or boot state.
+     * The most recently accessed slug is stored as the default for global helpers.
      */
-    public static function getInstance(): static
+    public static function getInstance(string $slug): static
     {
-        if (static::$instance === null) {
-            static::$instance = new static();
+        if (!isset(static::$instances[$slug])) {
+            static::$instances[$slug] = new static();
         }
 
-        return static::$instance;
+        static::$defaultSlug = $slug;
+
+        return static::$instances[$slug];
+    }
+
+    /**
+     * Return the most recently booted instance.
+     *
+     * Used by global helpers (wpillar_app, wpillar_config) so they work
+     * without knowing the plugin slug. In single-plugin setups this is always
+     * correct. In multi-plugin setups, prefer Application::getInstance($slug)
+     * directly inside service providers.
+     *
+     * @throws RuntimeException if no instance has been booted yet.
+     */
+    public static function current(): static
+    {
+        if (static::$defaultSlug === '' || !isset(static::$instances[static::$defaultSlug])) {
+            throw new RuntimeException(
+                'No Application instance has been booted yet. Call getInstance($slug) first.'
+            );
+        }
+
+        return static::$instances[static::$defaultSlug];
     }
 
     /**

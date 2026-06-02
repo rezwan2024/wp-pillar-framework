@@ -6,15 +6,15 @@ use App\Providers\AppServiceProvider;
 use WPPillar\Framework\Application;
 use WPPillar\Framework\Database\ORM;
 
-$app = Application::getInstance();
+// Load config first so we can pass the slug to getInstance().
+$pluginConfig = require __DIR__ . '/../config/plugin.php';
+
+$app = Application::getInstance($pluginConfig['slug']);
 
 // Guard against double-boot within a single request.
 if ($app->isBooted()) {
     return $app;
 }
-
-// Load plugin config and merge in runtime paths (set by plugin-entry.php constants).
-$pluginConfig = require __DIR__ . '/../config/plugin.php';
 
 $app->setConfig(array_merge($pluginConfig, [
     'plugin_path' => defined('EXAMPLE_PLUGIN_PATH') ? EXAMPLE_PLUGIN_PATH : dirname(__DIR__) . '/',

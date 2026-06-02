@@ -8,22 +8,23 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 if (!function_exists('wpillar_app')) {
     /**
-     * Get the WP Pillar Application singleton.
+     * Get the most recently booted Application instance.
+     * In multi-plugin setups, use Application::getInstance($slug) directly.
      */
     function wpillar_app(): Application
     {
-        return Application::getInstance();
+        return Application::current();
     }
 }
 
 if (!function_exists('wpillar_config')) {
     /**
-     * Get a config value by dot-notation key from the Application.
+     * Get a config value by dot-notation key from the most recently booted Application.
      * Returns $default when the key is not found.
      */
     function wpillar_config(string $key, mixed $default = null): mixed
     {
-        return Application::getInstance()->getConfig($key) ?? $default;
+        return Application::current()->getConfig($key) ?? $default;
     }
 }
 

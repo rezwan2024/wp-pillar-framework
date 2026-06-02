@@ -74,7 +74,7 @@ use WPPillar\Framework\Console\Installer;
 
 register_activation_hook(__FILE__, static function () {
     require_once __DIR__ . '/boot/app.php';
-    Installer::activate([\CreateExampleTable::class]);
+    Installer::activate(wpillar_config('slug'), [\CreateExampleTable::class]);
 });
 
 register_deactivation_hook(__FILE__, static function () {
@@ -89,7 +89,7 @@ class ExamplePluginUninstaller
     {
         require_once __DIR__ . '/vendor/autoload.php';
         require_once __DIR__ . '/boot/app.php';
-        \WPPillar\Framework\Console\Installer::uninstall([\CreateExampleTable::class]);
+        \WPPillar\Framework\Console\Installer::uninstall(wpillar_config('slug'), [\CreateExampleTable::class]);
     }
 }
 

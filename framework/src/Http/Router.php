@@ -12,8 +12,11 @@ use WP_REST_Request;
  * REST API router — wraps WordPress register_rest_route() with Laravel-style syntax.
  *
  * Follows FluentForm's app/Http/Routes pattern.
- * SECURITY: Every registered route verifies the X-WP-Nonce header before
- * calling the controller. This is non-negotiable and cannot be bypassed.
+ *
+ * Authenticated routes (get/post/put/patch/delete): nonce verified on every request.
+ * Public routes (publicGet/publicPost/…): no nonce — open to unauthenticated callers.
+ *   A Policy may still be passed to public routes for capability checks.
+ *   Omitting the Policy on a public route registers it as fully open — use deliberately.
  *
  * Usage (inside rest_api_init callback):
  *   $router = new Router('example-plugin/v1');
@@ -22,6 +25,7 @@ use WP_REST_Request;
  *   $router->get('/examples/(?P<id>\d+)',    'ExampleController@show',    ExamplePolicy::class);
  *   $router->put('/examples/(?P<id>\d+)',    'ExampleController@update',  ExamplePolicy::class);
  *   $router->delete('/examples/(?P<id>\d+)', 'ExampleController@destroy', ExamplePolicy::class);
+ *   $router->publicGet('/feed',              'FeedController@index');
  */
 class Router
 {
@@ -81,17 +85,66 @@ class Router
     }
 
     /**
-     * Register a route with WordPress REST API.
-     * Nonce verification is wired into the permission_callback on every route.
+     * Register a public (unauthenticated) GET route — no nonce required.
+     *
+     * @param class-string|null $policy Optional — still called when provided.
+     */
+    public function publicGet(string $route, string $handler, ?string $policy = null): void
+    {
+        $this->register('GET', $route, $handler, $policy, requiresNonce: false);
+    }
+
+    /**
+     * Register a public (unauthenticated) POST route — no nonce required.
      *
      * @param class-string|null $policy
      */
-    private function register(string $method, string $route, string $handler, ?string $policy): void
+    public function publicPost(string $route, string $handler, ?string $policy = null): void
+    {
+        $this->register('POST', $route, $handler, $policy, requiresNonce: false);
+    }
+
+    /**
+     * Register a public (unauthenticated) PUT route — no nonce required.
+     *
+     * @param class-string|null $policy
+     */
+    public function publicPut(string $route, string $handler, ?string $policy = null): void
+    {
+        $this->register('PUT', $route, $handler, $policy, requiresNonce: false);
+    }
+
+    /**
+     * Register a public (unauthenticated) PATCH route — no nonce required.
+     *
+     * @param class-string|null $policy
+     */
+    public function publicPatch(string $route, string $handler, ?string $policy = null): void
+    {
+        $this->register('PATCH', $route, $handler, $policy, requiresNonce: false);
+    }
+
+    /**
+     * Register a public (unauthenticated) DELETE route — no nonce required.
+     *
+     * @param class-string|null $policy
+     */
+    public function publicDelete(string $route, string $handler, ?string $policy = null): void
+    {
+        $this->register('DELETE', $route, $handler, $policy, requiresNonce: false);
+    }
+
+    /**
+     * Register a route with WordPress REST API.
+     *
+     * @param class-string|null $policy
+     */
+    private function register(string $method, string $route, string $handler, ?string $policy, bool $requiresNonce = true): void
     {
         register_rest_route($this->namespace, $route, [
             'methods'             => $method,
             'callback'            => $this->buildCallback($handler),
-            'permission_callback' => $this->buildPermissionCallback($policy),
+            'permission_callback' => $this->buildPermissionCallback($policy, $requiresNonce),
         ]);
     }
 
@@ -119,18 +172,23 @@ class Router
     /**
      * Build the permission callback.
      *
-     * SECURITY ORDER (must not be changed):
+     * For authenticated routes ($requiresNonce = true):
      *   1. Verify X-WP-Nonce header — reject with 403 if invalid.
-     *   2. If a Policy class is provided — delegate to its authorize() method.
+     *   2. If a Policy is provided — delegate to its authorize() method.
      *   3. If no Policy — require is_user_logged_in() as minimum.
+     *
+     * For public routes ($requiresNonce = false):
+     *   1. Nonce step is skipped entirely.
+     *   2. If a Policy is provided — delegate to its authorize() method.
+     *   3. If no Policy — route is fully open (returns true).
      *
      * @param class-string|null $policy
      */
-    private function buildPermissionCallback(?string $policy): callable
+    private function buildPermissionCallback(?string $policy, bool $requiresNonce = true): callable
     {
-        return function (WP_REST_Request $request) use ($policy): bool|WP_Error {
-            // Step 1 — Nonce verification is mandatory on every route.
-            if (!$this->verifyNonce($request)) {
+        return function (WP_REST_Request $request) use ($policy, $requiresNonce): bool|WP_Error {
+            // Step 1 — Nonce verification (skipped for explicitly public routes).
+            if ($requiresNonce && !$this->verifyNonce($request)) {
                 return new WP_Error(
                     'invalid_nonce',
                     'Invalid or missing nonce.',
@@ -138,14 +196,15 @@ class Router
                 );
             }
 
-            // Step 2 — Policy-based permission check.
+            // Step 2 — Policy-based permission check (applies to all routes).
             if ($policy !== null) {
                 $policyInstance = new $policy();
                 return $policyInstance->authorize();
             }
 
-            // Step 3 — Minimum: user must be logged in.
-            return is_user_logged_in();
+            // Step 3 — Authenticated route with no policy: require login.
+            //           Public route with no policy: open to all.
+            return $requiresNonce ? is_user_logged_in() : true;
         };
     }
 
