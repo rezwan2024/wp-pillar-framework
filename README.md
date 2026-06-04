@@ -146,19 +146,6 @@ framework/
 
 ---
 
-## Known Gotchas
-
-These caught us during development — worth knowing before you start:
-
-1. **`register_uninstall_hook` does not accept Closures** — always use `['ClassName', 'method']` format:
-
-```php
-// Correct
-register_uninstall_hook(__FILE__, ['MyPlugin\Installer', 'uninstall']);
-
-// Wrong — WordPress will silently ignore this
-register_uninstall_hook(__FILE__, function() { ... });
-```
 
 2. **`illuminate/pagination` must be listed explicitly** in `composer.json` — it is not pulled in automatically as a transitive dependency:
 
