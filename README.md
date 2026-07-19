@@ -27,14 +27,15 @@ Instead of writing the same boilerplate from scratch every time — database set
 7. [Step 7 — Migrations and seeders](#step-7--migrations-and-seeders)
 8. [Step 8 — Controllers, Policies, and routes](#step-8--controllers-policies-and-routes)
 9. [Step 9 — Install and activate](#step-9--install-and-activate)
-10. [Checklist — what makes a plugin actually independent](#checklist--what-makes-a-plugin-actually-independent)
-11. [Repository structure](#repository-structure)
-12. [What's inside `framework/`](#whats-inside-framework)
-13. [Key features](#key-features)
-14. [Requirements](#requirements)
-15. [Notes & gotchas](#notes--gotchas)
-16. [Composer dependencies](#composer-dependencies)
-17. [Plugins built on WP Pillar](#plugins-built-on-wp-pillar)
+10. [Updating the framework later](#updating-the-framework-later)
+11. [Checklist — what makes a plugin actually independent](#checklist--what-makes-a-plugin-actually-independent)
+12. [Repository structure](#repository-structure)
+13. [What's inside `framework/`](#whats-inside-framework)
+14. [Key features](#key-features)
+15. [Requirements](#requirements)
+16. [Notes & gotchas](#notes--gotchas)
+17. [Composer dependencies](#composer-dependencies)
+18. [Plugins built on WP Pillar](#plugins-built-on-wp-pillar)
 
 ---
 
@@ -467,6 +468,21 @@ Build your Vue frontend in `resources/js/` (Vue 3 + Vite — the plugin's own re
 
 ---
 
+## Updating the framework later
+
+Because you copy this scaffold in rather than installing it as a Composer dependency, a fix or new feature pushed to this repo doesn't automatically reach plugins that already copied it — each plugin needs to manually pull the update. `bin/update-framework.sh` (included in the scaffold) automates that:
+
+```bash
+bash bin/update-framework.sh          # pulls framework/ from main
+bash bin/update-framework.sh v1.2     # or pull a specific tag/branch
+```
+
+It detects your plugin's renamed namespace from `framework/src/Application.php`, backs up your current `framework/` to `framework.backup.<timestamp>/`, pulls the fresh `framework/` folder from this repo, reapplies your namespace rename automatically, and regenerates the Composer autoloader. It never touches `app/`, `boot/`, `config/`, or `database/` — only `framework/` is ever replaced, and nothing is committed for you.
+
+**This is a manual, per-plugin step, not an auto-update** — run it, review the diff, test the plugin, then commit. There's no mechanism that pushes updates to plugins on its own.
+
+---
+
 ## Checklist — what makes a plugin actually independent
 
 | What | Where | Effect if skipped |
@@ -517,6 +533,8 @@ my-plugin/                        ← Your plugin root
 │   ├── Http/Controllers/
 │   ├── Http/Policies/            (or Http/Middleware/)
 │   └── Http/Routes/api.php
+├── bin/
+│   └── update-framework.sh       ← Pulls framework/ updates from this repo later
 ├── boot/                         ← Bootstrap — wires framework to your plugin
 ├── config/                       ← Plugin configuration
 ├── database/
