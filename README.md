@@ -19,23 +19,22 @@ Instead of writing the same boilerplate from scratch every time — database set
 ## Contents
 
 1. [Step 1 — Copy the scaffold](#step-1--copy-the-scaffold)
-2. [Step 2 — Decide: single-plugin or multi-plugin site?](#step-2--decide-single-plugin-or-multi-plugin-site)
-3. [Step 3 — Rename the framework namespace](#step-3--rename-the-framework-namespace)
-4. [Step 4 — Rename the plugin entry file and update plugin headers](#step-4--rename-the-plugin-entry-file-and-update-plugin-headers)
-5. [Step 5 — Configure `config/plugin.php`](#step-5--configure-configpluginphp)
-6. [Step 6 — `boot/app.php`: wire the framework to your plugin](#step-6--bootappphp-wire-the-framework-to-your-plugin)
-7. [Step 7 — Models: always add a `BaseModel`](#step-7--models-always-add-a-basemodel)
-8. [Step 8 — Migrations and seeders](#step-8--migrations-and-seeders)
-9. [Step 9 — Controllers, Policies, and routes](#step-9--controllers-policies-and-routes)
-10. [Step 10 — Install and activate](#step-10--install-and-activate)
-11. [Checklist — what makes a plugin actually independent](#checklist--what-makes-a-plugin-actually-independent)
-12. [Repository structure](#repository-structure)
-13. [What's inside `framework/`](#whats-inside-framework)
-14. [Key features](#key-features)
-15. [Requirements](#requirements)
-16. [Notes & gotchas](#notes--gotchas)
-17. [Composer dependencies](#composer-dependencies)
-18. [Plugins built on WP Pillar](#plugins-built-on-wp-pillar)
+2. [Step 2 — Rename the framework namespace](#step-2--rename-the-framework-namespace)
+3. [Step 3 — Rename the plugin entry file and update plugin headers](#step-3--rename-the-plugin-entry-file-and-update-plugin-headers)
+4. [Step 4 — Configure `config/plugin.php`](#step-4--configure-configpluginphp)
+5. [Step 5 — `boot/app.php`: wire the framework to your plugin](#step-5--bootappphp-wire-the-framework-to-your-plugin)
+6. [Step 6 — Models: always add a `BaseModel`](#step-6--models-always-add-a-basemodel)
+7. [Step 7 — Migrations and seeders](#step-7--migrations-and-seeders)
+8. [Step 8 — Controllers, Policies, and routes](#step-8--controllers-policies-and-routes)
+9. [Step 9 — Install and activate](#step-9--install-and-activate)
+10. [Checklist — what makes a plugin actually independent](#checklist--what-makes-a-plugin-actually-independent)
+11. [Repository structure](#repository-structure)
+12. [What's inside `framework/`](#whats-inside-framework)
+13. [Key features](#key-features)
+14. [Requirements](#requirements)
+15. [Notes & gotchas](#notes--gotchas)
+16. [Composer dependencies](#composer-dependencies)
+17. [Plugins built on WP Pillar](#plugins-built-on-wp-pillar)
 
 ---
 
@@ -56,24 +55,9 @@ You now have an independent plugin with its own git history, ready to customize.
 
 ---
 
-## Step 2 — Decide: single-plugin or multi-plugin site?
+## Step 2 — Rename the framework namespace
 
-Do this **before** touching any code — it changes how you write `boot/app.php` in Step 6.
-
-| Scenario | What to do |
-|---|---|
-| Your plugin will be the only WP Pillar plugin active on any site it's installed on | Use the framework's `Application` class directly (Step 6, Option A) |
-| The site already runs (or might run) another WP Pillar plugin | Use your own lightweight state holder instead of `Application` (Step 6, Option B) |
-
-**Why this matters:** `Application` and `ORM` isolate config and DB connections *per plugin slug*, but they're still the same PHP class shared by every WP Pillar plugin on the site — unless you also rename the framework namespace (Step 3). If two plugins both extend the framework's `ServiceProvider`/`Application` singleton without the namespace rename, whichever plugin's `plugins_loaded` callback fires last can silently overwrite the other plugin's config.
-
-If you're not sure whether your site will ever run two WP Pillar plugins together: **do the namespace rename in Step 3 anyway.** It costs a few minutes now and is expensive to retrofit once you've shipped.
-
----
-
-## Step 3 — Rename the framework namespace
-
-The scaffold ships as `WPPillar\Framework\*`. Two plugins that both keep this namespace share the exact same PHP classes at the language level — do this rename right after Step 1, before writing any plugin code:
+The scaffold ships as `WPPillar\Framework\*`. Do this rename for **every** plugin you build on WP Pillar, right after Step 1, before writing any plugin code — it costs a few minutes now and keeps this plugin's classes, DB connection, and config completely independent from any other WP Pillar plugin that might ever run on the same WordPress site, whether you end up building just this one plugin or several:
 
 ```bash
 # Run from your new plugin's root
@@ -87,11 +71,11 @@ composer dump-autoload
 
 Replace `YourPlugin` with a short PascalCase identifier for your plugin (e.g. a plugin called "Invoice Manager" might use `InvoiceManager`). Every code sample below uses `YourPlugin\Framework\*` and `YourPlugin\App\*` — substitute your real namespace throughout.
 
-> **Rule of thumb:** if you did this rename, `Application`/`ORM` and your own custom state pattern (Step 6, Option B) are equally safe — they're now genuinely separate PHP classes per plugin. If for some reason you skip this rename and your site runs multiple WP Pillar plugins, you **must** use Option B in Step 6 — it's the only thing standing between your plugin and another WP Pillar plugin's config getting clobbered.
+Without this rename, two WP Pillar plugins active on the same site would share the exact same PHP classes — whichever plugin's `plugins_loaded` callback fires last could silently overwrite the other's config or database connection. With it, `Application` and `ORM` (which already isolate everything by plugin slug internally) become genuinely separate PHP classes per plugin, so the rest of the steps below work identically regardless of how many WP Pillar plugins end up on the site.
 
 ---
 
-## Step 4 — Rename the plugin entry file and update plugin headers
+## Step 3 — Rename the plugin entry file and update plugin headers
 
 WordPress convention is for the main plugin file to share the plugin's folder/slug name. Rename `plugin-entry.php`:
 
@@ -124,13 +108,13 @@ define('YOUR_PLUGIN_PATH',    plugin_dir_path(__FILE__));
 define('YOUR_PLUGIN_URL',     plugin_dir_url(__FILE__));
 ```
 
-`Text Domain` must match `text_domain` in `config/plugin.php` (Step 5) exactly — WordPress uses this for translations.
+`Text Domain` must match `text_domain` in `config/plugin.php` (Step 4) exactly — WordPress uses this for translations.
 
-Also update `composer.json`: package `name` (e.g. `"your-name/your-plugin"`) and the PSR-4 namespace root if you haven't already done so as part of Step 3.
+Also update `composer.json`: package `name` (e.g. `"your-name/your-plugin"`) and the PSR-4 namespace root if you haven't already done so as part of Step 2.
 
 ---
 
-## Step 5 — Configure `config/plugin.php`
+## Step 4 — Configure `config/plugin.php`
 
 This is your plugin's identity — every other file reads from it via `wpillar_config()`. Real example from a production plugin:
 
@@ -162,15 +146,13 @@ return [
 | `db_prefix` | Globally unique — prefixed to every table your plugin creates. Never hardcode it anywhere else |
 | `rest_namespace` | Include your slug so REST routes never collide with another plugin's routes |
 | `model_namespace` | Must exactly match your models' real PHP namespace — this is what lets `ORM` auto-route every model to your plugin's own named DB connection |
-| `text_domain` | Must exactly match the `Text Domain` header in your plugin entry file (Step 4) |
+| `text_domain` | Must exactly match the `Text Domain` header in your plugin entry file (Step 3) |
 
 ---
 
-## Step 6 — `boot/app.php`: wire the framework to your plugin
+## Step 5 — `boot/app.php`: wire the framework to your plugin
 
-Pick the option that matches your Step 2 decision.
-
-### Option A — single WP Pillar plugin on the site
+This one pattern works whether this ends up being the only WP Pillar plugin on a site or one of several — `Application` and `ORM` already isolate everything by plugin slug, and Step 2's namespace rename makes that isolation airtight:
 
 ```php
 <?php
@@ -204,176 +186,13 @@ $app->boot();
 return $app;
 ```
 
-### Option B — site already runs (or might run) another WP Pillar plugin
-
-Don't touch the framework's `Application` class at all. Add your own tiny state holder, `app/PluginState.php`:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace YourPlugin\App;
-
-if (!defined('ABSPATH')) {
-    exit;
-}
-
-class PluginState
-{
-    private static ?self $instance = null;
-    private array $config          = [];
-    private bool  $booted          = false;
-
-    private function __construct() {}
-
-    public static function getInstance(): static
-    {
-        if (static::$instance === null) {
-            static::$instance = new static();
-        }
-
-        return static::$instance;
-    }
-
-    public function setConfig(array $config): void
-    {
-        $this->config = $config;
-    }
-
-    public function getConfig(?string $key = null): mixed
-    {
-        return $key === null ? $this->config : ($this->config[$key] ?? null);
-    }
-
-    public function isBooted(): bool
-    {
-        return $this->booted;
-    }
-
-    public function markBooted(): void
-    {
-        $this->booted = true;
-    }
-}
-```
-
-Then `boot/app.php`:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-require_once __DIR__ . '/../framework/src/Support/helpers.php';
-
-use YourPlugin\App\PluginState;
-use YourPlugin\App\Providers\AppServiceProvider;
-use YourPlugin\Framework\Database\ORM;
-
-$state = PluginState::getInstance();
-
-if ($state->isBooted()) {
-    return $state;
-}
-
-$pluginConfig = require __DIR__ . '/../config/plugin.php';
-
-$state->setConfig(array_merge($pluginConfig, [
-    'plugin_path' => defined('YOUR_PLUGIN_PATH') ? YOUR_PLUGIN_PATH : dirname(__DIR__) . '/',
-    'plugin_url'  => defined('YOUR_PLUGIN_URL')  ? YOUR_PLUGIN_URL  : '',
-]));
-
-ORM::boot($state->getConfig());
-
-$provider = new AppServiceProvider($state);
-$provider->register();
-$provider->boot();
-
-$state->markBooted();
-
-return $state;
-```
-
-`ORM::boot()` is still safe to call from every plugin — `ORM` isolates connections per slug internally regardless of which option you pick. What Option B avoids is the shared `Application` singleton and the framework `ServiceProvider` base class, which route through that same singleton.
-
-`AppServiceProvider` then takes `PluginState` through its constructor instead of extending the framework's `ServiceProvider`:
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace YourPlugin\App\Providers;
-
-use YourPlugin\App\PluginState;
-
-class AppServiceProvider
-{
-    public function __construct(private readonly PluginState $state) {}
-
-    public function register(): void
-    {
-        $pluginPath = $this->state->getConfig('plugin_path');
-
-        add_action('rest_api_init', static function () use ($pluginPath) {
-            require_once $pluginPath . 'app/Http/Routes/api.php';
-        });
-    }
-
-    public function boot(): void
-    {
-        add_action('admin_menu', [$this, 'registerAdminMenu']);
-        add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
-    }
-
-    public function registerAdminMenu(): void
-    {
-        add_menu_page(
-            __('Your Plugin', 'your-plugin-name'),
-            __('Your Plugin', 'your-plugin-name'),
-            'manage_options',
-            $this->state->getConfig('slug'),
-            [$this, 'renderApp'],
-            'dashicons-admin-generic',
-            28
-        );
-    }
-
-    public function renderApp(): void
-    {
-        if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have permission to access this page.', 'your-plugin-name'));
-        }
-
-        echo '<div id="your-plugin-app"></div>';
-    }
-
-    public function enqueueAssets(string $hook): void
-    {
-        $slug    = $this->state->getConfig('slug');
-        $version = $this->state->getConfig('version');
-        $baseUrl = $this->state->getConfig('plugin_url');
-
-        if (strpos($hook, $slug) === false) {
-            return;
-        }
-
-        wp_enqueue_script($slug, $baseUrl . 'dist/main.js', [], $version, true);
-
-        wp_localize_script($slug, 'yourPluginConfig', [
-            'nonce'   => wp_create_nonce('wp_rest'),
-            'restUrl' => rest_url($this->state->getConfig('rest_namespace') . '/'),
-        ]);
-    }
-}
-```
+`Application::getInstance($slug)` always returns this plugin's own isolated instance — passing the slug (not the no-arg legacy form) is what keeps `setConfig()` here from ever touching another plugin's config, even before accounting for the namespace rename.
 
 ---
 
-## Step 7 — Models: always add a `BaseModel`
+## Step 6 — Models: always add a `BaseModel`
 
-Even for a single-plugin site, add one abstract `BaseModel` pinning `$ormSlug`, and have every real model extend it instead of the framework `Model` directly:
+Add one abstract `BaseModel` pinning `$ormSlug`, and have every real model extend it instead of the framework `Model` directly:
 
 ```php
 <?php
@@ -418,7 +237,7 @@ This costs one extra file and guarantees every model resolves to your named conn
 
 ---
 
-## Step 8 — Migrations and seeders
+## Step 7 — Migrations and seeders
 
 Migrations extend `Migration` and **must use `ORM::schema()`**, not the raw `Illuminate\Database\Capsule\Manager` facade — the facade resolves to a `default` connection that doesn't exist once multiple named per-plugin connections are registered:
 
@@ -536,7 +355,7 @@ and commit the regenerated `vendor/composer/autoload_classmap.php` / `autoload_s
 
 ---
 
-## Step 9 — Controllers, Policies, and routes
+## Step 8 — Controllers, Policies, and routes
 
 The Router supports two auth styles side by side — a single `Policy` class-string (simplest, good default) or an array of `Middleware` classes (for stacking checks like rate limiting or audit logging via `Router::group()`).
 
@@ -638,7 +457,7 @@ $router->group(['prefix' => '/admin', 'middleware' => [AuditLogMiddleware::class
 
 ---
 
-## Step 10 — Install and activate
+## Step 9 — Install and activate
 
 ```bash
 composer install
@@ -654,14 +473,14 @@ Build your Vue frontend in `resources/js/` (Vue 3 + Vite — the plugin's own re
 |---|---|---|
 | Unique `slug` | `config/plugin.php` | Admin menu / `wp_options` keys collide with another plugin |
 | Unique `db_prefix` | `config/plugin.php` | Table name collisions |
-| Renamed `YourPlugin\Framework\*` namespace | Step 3 | Two plugins share the same PHP class; whichever loads last on `plugins_loaded` can corrupt the other's config/connection |
-| Your own state holder instead of `Application`, if sharing a site | Step 6, Option B | Framework `ServiceProvider`/`Application` singleton gets overwritten by whichever plugin boots last |
-| `BaseModel` with `$ormSlug` | Step 7 | Models can resolve to the wrong DB connection if another plugin calls `ORM::boot()` afterward |
-| Every migration/seeder registered in the entry file's lists | Step 8 | `Installer` only runs what's listed — the file alone does nothing |
-| `composer dump-autoload -o` after adding any migration/seeder file | Step 8 | `Class "...Seeder" not found` on activation, even though the file exists |
+| Renamed `YourPlugin\Framework\*` namespace | Step 2 | Two plugins share the same PHP class; whichever loads last on `plugins_loaded` can corrupt the other's config/connection |
+| `Application::getInstance($slug)` passed a slug, always | Step 5 | The no-arg legacy form resolves to whichever plugin booted most recently — never safe across plugins |
+| `BaseModel` with `$ormSlug` | Step 6 | Models can resolve to the wrong DB connection if another plugin calls `ORM::boot()` afterward |
+| Every migration/seeder registered in the entry file's lists | Step 7 | `Installer` only runs what's listed — the file alone does nothing |
+| `composer dump-autoload -o` after adding any migration/seeder file | Step 7 | `Class "...Seeder" not found` on activation, even though the file exists |
 | `if (!defined('ABSPATH')) { exit; }` at the top of every PHP file | everywhere | Blocks direct file access |
-| `current_user_can()` check inside every controller method, not just the route policy | Step 9 | Defense in depth — don't rely on router middleware alone |
-| Never deactivate/reactivate to push a schema change on a live site | Step 8 | Deactivate/reactivate is not idempotent for new schema changes — write the `ALTER TABLE` directly instead |
+| `current_user_can()` check inside every controller method, not just the route policy | Step 8 | Defense in depth — don't rely on router middleware alone |
+| Never deactivate/reactivate to push a schema change on a live site | Step 7 | Deactivate/reactivate is not idempotent for new schema changes — write the `ALTER TABLE` directly instead |
 
 ---
 
@@ -793,9 +612,9 @@ These caught us during real production plugin development — worth knowing befo
 }
 ```
 
-2. **Migrations and seeders must use `ORM::schema()` / `ORM::table()`**, not the `Illuminate\Database\Capsule\Manager` facade directly — the facade resolves to a `default` connection that no longer exists once multiple named per-plugin connections are registered (see [Step 8](#step-8--migrations-and-seeders)).
+2. **Migrations and seeders must use `ORM::schema()` / `ORM::table()`**, not the `Illuminate\Database\Capsule\Manager` facade directly — the facade resolves to a `default` connection that no longer exists once multiple named per-plugin connections are registered (see [Step 7](#step-7--migrations-and-seeders)).
 
-3. **Classmap autoloading needs a manual `composer dump-autoload -o`** after adding any new migration or seeder file — classmap entries are baked into the autoloader at build time, unlike PSR-4 (see [Step 8](#step-8--migrations-and-seeders)).
+3. **Classmap autoloading needs a manual `composer dump-autoload -o`** after adding any new migration or seeder file — classmap entries are baked into the autoloader at build time, unlike PSR-4 (see [Step 7](#step-7--migrations-and-seeders)).
 
 4. **Never use deactivate/reactivate to push a schema change to a live site** — `Installer` intentionally skips migrations it's already tracked as run. Write the `ALTER TABLE` directly, or ship it as a genuinely new migration class.
 
