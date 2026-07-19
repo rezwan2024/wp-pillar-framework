@@ -23,6 +23,11 @@ return [
     // Must match the Text Domain header in plugin-entry.php exactly.
     'text_domain'    => 'example-plugin',
 
+    // Namespace of this plugin's Eloquent models — lets ORM route each
+    // model to this plugin's own DB connection, never another active
+    // WP Pillar plugin's connection. Update when copying to a new plugin.
+    'model_namespace' => 'App\\Models',
+
     'min_php'        => '8.0',
     'min_wp'         => '6.0',
 ];

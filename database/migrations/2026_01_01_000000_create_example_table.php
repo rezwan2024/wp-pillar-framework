@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
 use WPPillar\Framework\Database\Migration;
+use WPPillar\Framework\Database\ORM;
 
 /**
  * Create the examples table.
@@ -20,7 +20,9 @@ class CreateExampleTable extends Migration
 {
     public function up(): void
     {
-        Capsule::schema()->create('examples', function (Blueprint $table) {
+        // ORM::schema() (not the Capsule facade) targets the connection
+        // Installer pinned via ORM::useSlug() — never another plugin's.
+        ORM::schema()->create('examples', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
@@ -36,6 +38,6 @@ class CreateExampleTable extends Migration
 
     public function down(): void
     {
-        Capsule::schema()->dropIfExists('examples');
+        ORM::schema()->dropIfExists('examples');
     }
 }

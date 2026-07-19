@@ -7,6 +7,8 @@ namespace WPPillar\Framework\Console;
 use RuntimeException;
 use Throwable;
 use WPPillar\Framework\Database\Migration;
+use WPPillar\Framework\Database\ORM;
+use WPPillar\Framework\Database\Seeder;
 
 /**
  * Plugin lifecycle manager — activation, deactivation, and safe uninstall.
@@ -20,10 +22,11 @@ use WPPillar\Framework\Database\Migration;
  * On uninstall, tables are only dropped when the user has explicitly
  * enabled "Delete all data" in the plugin settings.
  *
- * IDEMPOTENCY: activate() tracks which migrations have already run in a
- * wp_options record keyed by plugin slug. Re-activating a plugin skips
- * migrations that have already been applied — never causes a "table already
- * exists" error on the second activation.
+ * IDEMPOTENCY: activate() tracks which migrations AND which seeders have
+ * already run in wp_options records keyed by plugin slug. Re-activating a
+ * plugin skips migrations that have already been applied — never causes a
+ * "table already exists" error — and skips seeders that have already run,
+ * so re-activation never silently overwrites data the user has since changed.
  */
 class Installer
 {
@@ -37,18 +40,23 @@ class Installer
      *
      * @param string                    $pluginSlug Unique plugin identifier (e.g. 'my-plugin').
      * @param class-string<Migration>[] $migrations Ordered list of migration class names.
-     * @param object[]                  $seeders    Optional seeder instances — each must have run(): void.
+     * @param Seeder[]                  $seeders    Optional seeder instances — each must extend Seeder.
      * @throws RuntimeException on migration failure (after rollback).
      */
     public static function activate(string $pluginSlug, array $migrations, array $seeders = []): void
     {
-        $ranKey  = static::getRanMigrationsKey($pluginSlug);
-        $ran     = (array) get_option($ranKey, []);
-        $pending = array_values(array_filter($migrations, fn (string $m) => !in_array($m, $ran, true)));
+        ORM::useSlug($pluginSlug);
 
-        if (!empty($pending)) {
+        $ranMigrationsKey = static::getRanMigrationsKey($pluginSlug);
+        $ranMigrations    = (array) get_option($ranMigrationsKey, []);
+        $pendingMigrations = array_values(array_filter(
+            $migrations,
+            fn (string $m) => !in_array($m, $ranMigrations, true)
+        ));
+
+        if (!empty($pendingMigrations)) {
             try {
-                Migration::run($pending);
+                Migration::run($pendingMigrations);
             } catch (RuntimeException $e) {
                 // Migration::run() has already rolled back any completed migrations in this batch.
                 throw new RuntimeException(
@@ -58,14 +66,31 @@ class Installer
                 );
             }
 
-            update_option($ranKey, array_merge($ran, $pending));
+            update_option($ranMigrationsKey, array_merge($ranMigrations, $pendingMigrations));
         }
 
+        $ranSeedersKey = static::getRanSeedersKey($pluginSlug);
+        $ranSeeders    = (array) get_option($ranSeedersKey, []);
+        $newlyRun      = [];
+
         foreach ($seeders as $seeder) {
+            $seederClass = $seeder::class;
+
+            if (in_array($seederClass, $ranSeeders, true)) {
+                continue;
+            }
+
             $seeder->run();
+            $newlyRun[] = $seederClass;
+        }
+
+        if (!empty($newlyRun)) {
+            update_option($ranSeedersKey, array_merge($ranSeeders, $newlyRun));
         }
 
         update_option(static::getInstalledAtKey($pluginSlug), time());
+
+        ORM::useSlug(null);
     }
 
     /**
@@ -91,6 +116,8 @@ class Installer
      */
     public static function uninstall(string $pluginSlug, array $migrations): void
     {
+        ORM::useSlug($pluginSlug);
+
         $deleteKey = static::getDeleteDataKey($pluginSlug);
 
         // SAFETY: Only drop tables if the user explicitly opted in to full data deletion.
@@ -105,6 +132,9 @@ class Installer
         delete_option($deleteKey);
         delete_option(static::getInstalledAtKey($pluginSlug));
         delete_option(static::getRanMigrationsKey($pluginSlug));
+        delete_option(static::getRanSeedersKey($pluginSlug));
+
+        ORM::useSlug(null);
     }
 
     /** wp_options key for the "delete all data on uninstall" flag. */
@@ -123,5 +153,11 @@ class Installer
     private static function getRanMigrationsKey(string $pluginSlug): string
     {
         return $pluginSlug . '_ran_migrations';
+    }
+
+    /** wp_options key storing the JSON array of already-run seeder class names. */
+    private static function getRanSeedersKey(string $pluginSlug): string
+    {
+        return $pluginSlug . '_ran_seeders';
     }
 }

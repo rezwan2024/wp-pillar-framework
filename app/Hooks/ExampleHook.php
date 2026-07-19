@@ -11,7 +11,7 @@ namespace App\Hooks;
  * are defined. The WP Pillar framework itself defines NO hooks — each plugin
  * owns its own hook namespace.
  *
- * Convention: use 'example-plugin/' as the hook prefix (slash-style, like FluentForm).
+ * Convention: use 'example-plugin/' as the hook prefix (slash-style).
  *
  * Usage: (new ExampleHook())->register() — called from AppServiceProvider::boot().
  */

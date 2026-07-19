@@ -8,7 +8,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Abstract database migration — follows FluentForm migration pattern.
+ * Abstract database migration base class.
  *
  * Each migration must implement up() and down(). The static run() method
  * wraps every migration in try/catch and rolls back all completed migrations

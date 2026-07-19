@@ -8,23 +8,38 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 if (!function_exists('wpillar_app')) {
     /**
-     * Get the most recently booted Application instance.
-     * In multi-plugin setups, use Application::getInstance($slug) directly.
+     * Get the Application instance for $slug, or the most recently booted
+     * instance when $slug is omitted.
+     *
+     * MULTI-PLUGIN SAFETY: pass $slug explicitly whenever two WP Pillar
+     * plugins may be active on the same site — the no-arg form only works
+     * correctly for the single most recently booted plugin.
      */
-    function wpillar_app(): Application
+    function wpillar_app(string $slug = ''): Application
     {
-        return Application::current();
+        return $slug === '' ? Application::current() : Application::getInstance($slug);
     }
 }
 
 if (!function_exists('wpillar_config')) {
     /**
-     * Get a config value by dot-notation key from the most recently booted Application.
+     * Get a config value by dot-notation key.
+     *
+     * Two-arg form — multi-plugin safe:
+     *   wpillar_config('my-plugin', 'db_prefix')
+     *
+     * One-arg legacy form — reads from the most recently booted Application:
+     *   wpillar_config('db_prefix')
+     *
      * Returns $default when the key is not found.
      */
-    function wpillar_config(string $key, mixed $default = null): mixed
+    function wpillar_config(string $slugOrKey, ?string $key = null, mixed $default = null): mixed
     {
-        return Application::current()->getConfig($key) ?? $default;
+        if ($key === null) {
+            return Application::current()->getConfig($slugOrKey) ?? $default;
+        }
+
+        return Application::getInstance($slugOrKey)->getConfig($key) ?? $default;
     }
 }
 

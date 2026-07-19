@@ -30,6 +30,34 @@ class Model extends EloquentModel
     protected $guarded = [];
 
     /**
+     * Explicit connection slug override — set this on a child model when it
+     * can't be auto-routed via ORM's model_namespace map (e.g. models outside
+     * the plugin's configured model_namespace).
+     */
+    protected static ?string $ormSlug = null;
+
+    /**
+     * Resolve which named ORM connection this model should use.
+     *
+     * MULTI-PLUGIN SAFETY: overriding this (rather than relying on the
+     * inherited $connection property) means every query this model runs is
+     * routed to its own plugin's connection — never the last-booted
+     * plugin's connection — even when two WP Pillar plugins share this
+     * exact framework namespace.
+     *
+     * Resolution order: auto-routed via ORM::resolveSlugForClass() (matches
+     * this model's namespace against the configured model_namespace) →
+     * explicit static::$ormSlug override → the most recently booted plugin
+     * (correct for single-plugin setups).
+     */
+    public function getConnectionName(): ?string
+    {
+        return ORM::resolveSlugForClass(static::class)
+            ?? static::$ormSlug
+            ?? ORM::defaultSlug();
+    }
+
+    /**
      * Get the fully-prefixed table name for this model.
      * Useful when referencing the table name in raw schema operations.
      */

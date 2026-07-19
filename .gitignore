@@ -2,6 +2,7 @@ vendor/
 *.log
 .DS_Store
 node_modules/
+.claude/
 CLAUDE.md
 plan.md
 progress.md

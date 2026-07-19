@@ -9,9 +9,8 @@ use RuntimeException;
 /**
  * WP Pillar Application — singleton service container.
  *
- * Follows FluentForm's App.php pattern: central registry for config,
- * bindings, and service providers. Zero WordPress function calls inside
- * this class — it must work in any PHP context.
+ * Central registry for config, bindings, and service providers. Zero
+ * WordPress function calls inside this class — it must work in any PHP context.
  */
 class Application
 {
