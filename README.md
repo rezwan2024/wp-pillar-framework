@@ -2,7 +2,7 @@
 
 A Laravel-inspired WordPress plugin development framework.
 
-**Version:** 1.0 | **Author:** Rezwan | **License:** GPL-3.0
+**Version:** 1.1 | **Author:** Rezwan | **License:** GPL-3.0
 
 📖 [Full Documentation](https://rezwan2024.github.io/wp-pillar-docs/)
 
@@ -34,12 +34,15 @@ cp -r wp-pillar-framework my-new-plugin
 |------|----------------|
 | `plugin-entry.php` | Plugin name, description, constants, `db_prefix` |
 | `composer.json` | Package name, PHP namespace |
-| `config/plugin.php` | `slug`, `name`, `db_prefix`, `rest_namespace`, `text_domain` |
+| `config/plugin.php` | `slug`, `name`, `db_prefix`, `rest_namespace`, `text_domain`, `model_namespace` |
 | `boot/app.php` | Confirm it points to your config |
+
+`model_namespace` matters even for a single plugin — it's what lets `ORM` route every model in your plugin to your plugin's own database connection (see [Running Multiple WP Pillar Plugins](#running-multiple-wp-pillar-plugins-on-the-same-site) below).
 
 3. **Replace the example scaffold** with your real plugin code:
    - Delete example files in `app/` → add your Controllers, Models, Services
    - Delete example files in `database/migrations/` → add your real table schemas
+   - Migrations and seeders should call `ORM::schema()` / models should extend the framework `Model` — never the raw `Illuminate\Database\Capsule\Manager` facade — so they stay routed to your plugin's own connection
 
 4. **Run composer install**
 
@@ -61,14 +64,18 @@ my-plugin/                        ← Your plugin root
 │       ├── Database/
 │       │   ├── ORM.php
 │       │   ├── Model.php
-│       │   └── Migration.php
+│       │   ├── Migration.php
+│       │   └── Seeder.php
 │       ├── Http/
 │       │   ├── Router.php
+│       │   ├── Middleware.php
 │       │   ├── Request.php
 │       │   ├── Response.php
 │       │   └── Controller.php
 │       ├── Auth/
 │       │   └── Policy.php
+│       ├── Console/
+│       │   └── Installer.php
 │       └── Support/
 │           ├── ServiceProvider.php
 │           ├── Config.php
@@ -105,18 +112,22 @@ Raw SQL, global variables, no structure, no dependency injection, no query build
 ```
 framework/
 └── src/
-    ├── Application.php          ← IoC container + singleton
+    ├── Application.php          ← IoC container, one isolated instance per plugin slug
     ├── Database/
-    │   ├── ORM.php              ← Eloquent bootstrap
-    │   ├── Model.php            ← Base Eloquent model
-    │   └── Migration.php        ← Safe migrations with rollback
+    │   ├── ORM.php              ← Eloquent bootstrap, one named connection per plugin slug
+    │   ├── Model.php            ← Base Eloquent model, auto-routes to its plugin's connection
+    │   ├── Migration.php        ← Safe migrations with rollback
+    │   └── Seeder.php           ← Base seeder class, tracked so it never re-runs on reactivation
     ├── Http/
-    │   ├── Router.php           ← REST routing with nonce security
+    │   ├── Router.php           ← REST routing with nonce security + middleware pipeline
+    │   ├── Middleware.php       ← Base middleware class for Router::group()
     │   ├── Request.php          ← Input validation
     │   ├── Response.php         ← JSON response helpers
     │   └── Controller.php       ← Base controller
     ├── Auth/
     │   └── Policy.php           ← Permission checks
+    ├── Console/
+    │   └── Installer.php        ← Activation/uninstall lifecycle, idempotent migrations + seeders
     └── Support/
         ├── ServiceProvider.php
         ├── Config.php
@@ -130,9 +141,12 @@ framework/
 
 - **Eloquent ORM** — zero `$wpdb`, full query builder, relationships, pagination
 - **Laravel-style routing** — clean REST API routes with automatic nonce verification
-- **IoC Container** — dependency injection inside WordPress
+- **Middleware pipeline** — `Router::group()` with nested prefixes and a right-to-left middleware stack, alongside the existing Policy-based route auth
+- **IoC Container** — dependency injection inside WordPress, isolated per plugin
 - **Policy-based auth** — never blindly returns `true`
-- **Safe migrations** — try/catch with automatic rollback on failure
+- **Safe migrations** — try/catch with automatic rollback on failure, skips migrations already applied on reactivation
+- **Idempotent seeders** — extend `Seeder`, tracked per plugin so reactivating never re-runs (and never silently overwrites) seeded data
+- **Multi-plugin safe** — `ORM` and `Application` isolate every plugin's connection/config by slug, so two WP Pillar plugins can run on the same site without one clobbering the other's database or settings
 - **Translation ready** — `wp_localize_script` pattern built into scaffold
 - **PHP 8.0+** — modern PHP features throughout
 
@@ -146,8 +160,33 @@ framework/
 
 ---
 
+## Running Multiple WP Pillar Plugins on the Same Site
 
-2. **`illuminate/pagination` must be listed explicitly** in `composer.json` — it is not pulled in automatically as a transitive dependency:
+Two plugins each copying this scaffold both declare the same PHP namespace (`WPPillar\Framework\*`) — PHP only loads one class per fully-qualified name, so without care, statics get shared between unrelated plugins. The framework has defense-in-depth for this:
+
+- `ORM` shares one Eloquent bootstrap but gives every plugin its own **named connection**, resolved automatically from each model's namespace (`model_namespace` in `config/plugin.php`).
+- `Application` keeps one **isolated instance per plugin slug** — `setConfig()` in one plugin never touches another plugin's config.
+- `Installer::activate()`/`uninstall()` always operate against the calling plugin's own connection via `ORM::useSlug($pluginSlug)`.
+
+This is enough for most setups. For the strongest guarantee — completely separate PHP classes, zero shared statics at the language level — rename the framework namespace to something unique per plugin right after copying the scaffold:
+
+```bash
+# Run from your new plugin's root
+find . -name "*.php" ! -path "*/vendor/*" \
+  -exec sed -i '' 's/WPPillar\\Framework/YourPlugin\\Framework/g' {} \;
+sed -i '' 's/WPPillar\\\\Framework/YourPlugin\\\\Framework/g' composer.json
+composer dump-autoload
+```
+
+Do this once, right after step 1 of [How to Start a New Plugin](#how-to-start-a-new-plugin), before writing any plugin-specific code.
+
+---
+
+## Notes & Gotchas
+
+These caught us during development — worth knowing before you start:
+
+1. **`illuminate/pagination` must be listed explicitly** in `composer.json` — it is not pulled in automatically as a transitive dependency:
 
 ```json
 "require": {
@@ -157,6 +196,8 @@ framework/
     "illuminate/pagination": "^10.0"
 }
 ```
+
+2. **Migrations and seeders must use `ORM::schema()` / `ORM::table()`**, not the `Illuminate\Database\Capsule\Manager` facade directly — the facade resolves to a `default` connection that no longer exists once multiple named per-plugin connections are registered.
 
 ---
 
