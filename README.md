@@ -818,8 +818,8 @@ All packages are MIT licensed — compatible with GPL-2.0-or-later for WordPress
 
 | Plugin | Description | Repo | db_prefix | rest_namespace | Framework Version |
 |--------|-------------|------|-----------|----------------|-------------------|
-| WP Notes | Full-stack Notes Manager — Vue 3 + Vite + Eloquent ORM + REST API | [wp-notes-plugin-wp-pillar-vue3](https://github.com/rezwan2024/wp-notes-plugin-wp-pillar-vue3) | `wpn_` | `wp-notes/v1` | v1.0 |
-| TicketWise AI | AI-powered support ticketing plugin — Vue 3 + Vite + Eloquent ORM + REST API | [ticketwise-ai](https://github.com/rezwan2024/ticketwise-ai) | `tw_` | `ticketwise-ai/v1` | v1.0 |
+| WP Notes | Test plugin used to validate the framework — Vue 3 + Vite + Eloquent ORM + REST API | [wp-notes-plugin-wp-pillar-vue3](https://github.com/rezwan2024/wp-notes-plugin-wp-pillar-vue3) | `wpn_` | `wp-notes/v1` | v1.0 |
+| TicketWise AI | **Production plugin** — AI-powered support ticketing, used daily by the BuddyBoss support team — Vue 3 + Vite + Eloquent ORM + REST API | [ticketwise-ai](https://github.com/rezwan2024/ticketwise-ai) | `tw_` | `ticketwise-ai/v1` | v1.0 |
 
 🎬 [Watch the demo on Loom](https://www.loom.com/share/630eeef902b5468bbfa64503b9dd532c)
 ⬇️ [Download wp-notes.zip (v1.0.0)](https://github.com/rezwan2024/wp-notes-plugin-wp-pillar-vue3/releases/download/v1.0.0/wp-notes.zip)
